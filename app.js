@@ -31,7 +31,8 @@ const postSchema = mongoose.Schema({
 
 const Post = mongoose.model("Post", postSchema);
 
-app.get("/", function (req, res) {
+app.get("/", async function (req, res) {
+  const posts = await Post.find({});
   res.render("home", {
     homeStartingContent: homeStartingContent,
     posts: posts,
@@ -50,55 +51,68 @@ app.get("/compose", function (req, res) {
   res.render("compose", { postBody: "", postTitle: "" });
 });
 
-app.post("/compose", function (req, res) {
-  if (!req.body.postTitle) {
+app.post("/compose", async function (req, res) {
+  const title = req.body.postTitle;
+  const body = req.body.postBody;
+
+  if (!title) {
     alert("Please add Title");
-    res.render("compose", { postBody: req.body.postBody, postTitle: "" });
+    res.render("compose", { postBody: body, postTitle: "" });
     return;
   }
-  if (
-    !posts.some(
-      (post) => _.lowerCase(post.title) === _.lowerCase(req.body.postTitle)
-    )
-  ) {
-    const post = new Post({
-      
-    })
-    // const post = {
-    //   title: req.body.postTitle,
-    //   content: req.body.postBody,
-    // };
-    // posts.push(post);
-    res.redirect("/");
-  } else {
-    alert("Such a title already exists");
-    res.render("compose", {
-      postBody: req.body.postBody,
-      postTitle: req.body.postTitle,
-    });
-  }
+
+  Post.exists({ title: title }, async function (err, doc) {
+    if (err) {
+      console.log("err");
+    } else {
+      if (doc == null) {
+        const post = new Post({
+          title: _.startCase(title),
+          content: body,
+        });
+        await post.save();
+        res.redirect("/");
+      } else {
+        alert("Such a title already exists");
+        res.render("compose", {
+          postBody: body,
+          postTitle: title,
+        });
+      }
+    }
+  });
 });
 
-app.get("/posts/:postName", function (req, res) {
-  if (
-    posts.some(
-      (post) => _.lowerCase(post.title) === _.lowerCase(req.params.postName)
-    )
-  ) {
-    const post = posts.find(
-      (post) => _.lowerCase(post.title) === _.lowerCase(req.params.postName)
-    );
-    res.render("post", { post: post });
-  } else {
-    res.redirect("/");
-  }
+app.get("/posts/:postName", async function (req, res) {
+
+  Post.findOne( {title : _.startCase(req.params.postName)}, function(err, doc){
+    if (doc != null){
+      console.log(doc);
+      res.render("post", { post: doc });
+    } else {
+      res.redirect("/");
+    }
+  })
+
+  // if (
+  //   posts.some(
+  //     (post) => _.lowerCase(post.title) === _.lowerCase(req.params.postName)
+  //   )
+  // ) {
+  //   const post = posts.find(
+  //     (post) => _.lowerCase(post.title) === _.lowerCase(req.params.postName)
+  //   );
+  //   res.render("post", { post: post });
+  // } else {
+  //   res.redirect("/");
+  // }
 });
 
 mongoose.set("strictQuery", true);
 main().catch((err) => console.log(err));
 
 async function main() {
-  mongoose.connect("mongodb://127.0.0.1:27017/todolistDB");
+  mongoose.connect("mongodb://127.0.0.1:27017/blogDB");
   console.log("MongoDB connected");
 }
 
